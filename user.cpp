@@ -13,23 +13,31 @@
 #include <cctype>
 #include <sstream>
 #define STANDARD_DSIP "193.136.138.142"
-#define STANDARD_DSPORT "58001" //Change port number
+#define STANDARD_DSPORT "59000" //Change port number
 
 using namespace std;
 
-int fd, errcode;
-ssize_t n;
-socklen_t addrlen;
-struct addrinfo hints, *res;
-struct sockaddr_in addr;
-char buffer[128];
+struct User {
+    string UID;
+    string password;
+    string peerport;
+    int login_state = 0;
+};
 
-bool only_digits(char arg[]) {
-    if (arg[0] == '\0') return false;
+bool only_digits(const char str[]) {
+    if (str[0] == '\0') return false;
 
-    size_t len = strlen(arg);
+    size_t len = strlen(str);
 
-    return all_of(arg, arg + len, [](unsigned char c) {return isdigit(c);});
+    return all_of(str, str + len, [](unsigned char c) {return isdigit(c);});
+}
+
+bool only_alnum(const char str[]) {
+    if (str[0] == '\0') return false;
+
+    size_t len = strlen(str);
+
+    return all_of(str, str + len, [](unsigned char c) {return isalnum(c);});
 }
 
 void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, string *DSport) {
@@ -50,7 +58,7 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
     }
 
     if (*peerport == "") {
-        cout << "ERRO: Não foi fornecido peerport!" << endl;
+        cerr << "Erro: Não foi fornecido peerport!" << endl;
         exit(-1);
     }
     if (*DSIP == "") *DSIP = STANDARD_DSIP;
@@ -59,17 +67,20 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
 
 
 int main(int argc, char* argv[]) {
-    string peerport;
+    struct User user;
     string DSIP;
     string DSport;
     int fd, errcode;
+    socklen_t addrlen;
     struct addrinfo hints, *res;
+    struct sockaddr_in addr;
+    char buffer[128], status[10], message[32];
 
-    argument_handler(argc, argv, &peerport, &DSIP, &DSport);
+    argument_handler(argc, argv, &user.peerport, &DSIP, &DSport);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        cout << "Erro a criar o socket" << endl;
+        cerr << "Erro: Criação de socket não foi bem sucedida!" << endl;
         exit(-1);
     }
 
@@ -77,19 +88,78 @@ int main(int argc, char* argv[]) {
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
 
-    errcode=getaddrinfo(DSIP.c_str(), peerport.c_str(), &hints,&res); 
+    errcode=getaddrinfo(DSIP.c_str(), DSport.c_str(), &hints, &res); 
     if(errcode!=0) exit(1);
 
-    string input, command, UID, password;
+    string input, command, extra;
+    ssize_t n;
 
     while (1) { 
         getline(cin, input);
         istringstream iss(input);
         iss >> command;
         if (command == "login") {
-            
+            if (!(iss >> user.UID >> user.password)) {
+                cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
+                continue;
+            } 
+            if (iss >> extra) {
+                cerr << "Erro: Introduziu parametros a mais!" << endl;
+                continue;
+            } 
+            if (user.UID.length() != 6 || !only_digits(user.UID.c_str())) {
+                cerr << "Erro: UID inválido!" << endl;
+                continue;
+            } 
+            if (user.password.length() != 8 || !only_alnum(user.password.c_str())) {
+                cerr << "Erro: password inválida!" << endl;
+                continue;
+            } 
+            snprintf(message, sizeof(message), "LIN %s %s %s\n", user.UID.c_str(), user.password.c_str(), user.peerport.c_str());
+            n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+            if (n == -1) {
+                cerr << "Erro: Não foi possível enviar o comando de login!" << endl;
+                continue;
+            } 
+            n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+            if (n == -1) {
+                cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
+                continue;
+            } 
+            sscanf(buffer, "RLI %s", status);
+            if (strcmp(status, "OK")) {
+                cout << "Login bem sucedido!\n";
+                user.login_state = 1;
+            }
+            else if (strcmp(status, "NOK")) cout << "Password errada!\n";
+            else if (strcmp(status, "REG")) cout << "Utilizador registado e login bem sucedido!\n";
         } else if (command == "unregister") {
-
+            if (iss >> extra) {
+                cerr << "Erro: Introduziu parametros a mais!\n";
+                continue;
+            } 
+            if (user.login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
+                cerr << "Erro: Não tem sessão iniciada!\n";
+                continue;
+            } 
+            snprintf(message, sizeof(message), "UNR %s %s", user.UID.c_str(), user.password.c_str());
+            n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+            if (n == -1) {
+                cerr << "Erro: Não foi possível enviar o comando de unregister!" << endl;
+                continue;
+            }
+            n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+            if (n == -1) {
+                cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
+                continue;
+            } 
+            sscanf(buffer, "RUR %s", status);
+            if (strcmp(status, "OK")) {
+                cout << "Unregister bem sucedido!\n";
+            }
+            else if (strcmp(status, "NOK")) cout << "Utilizador não tem sessão iniciada!\n";
+            else if (strcmp(status, "UNR")) cout << "Utilizador não está registado!\n";
+            else if (strcmp(status, "WRP")) cout << "Password incorreta!\n";
         } else if (command == "logout") {
 
         } else if (command == "exit") {

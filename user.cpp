@@ -58,13 +58,179 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
     }
 
     if (*peerport == "") {
-        cerr << "Erro: Não foi fornecido peerport!" << endl;
+        cerr << "ERR: Não foi fornecido peerport!" << endl;
         exit(-1);
     }
     if (*DSIP == "") *DSIP = STANDARD_DSIP;
     if (*DSport == "") *DSport = STANDARD_DSPORT;
 }
 
+bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string extra;
+    char message[32];
+    char buffer[128];
+    char status[10];
+    ssize_t n;
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (!(iss >> user->UID >> user->password)) {
+        cerr << "ERR: Não intruduziu todos os parametros necessários!" << endl;
+        return false;
+    } 
+    if (iss >> extra) {
+        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        return false;
+    } 
+    if (user->UID.length() != 6 || !only_digits(user->UID.c_str())) {
+        cerr << "ERR: UID inválido!" << endl;
+        return false;
+    } 
+    if (user->password.length() != 8 || !only_alnum(user->password.c_str())) {
+        cerr << "ERR: password inválida!" << endl;
+        return false;
+    } 
+    snprintf(message, sizeof(message), "LIN %s %s %s\n", user->UID.c_str(), user->password.c_str(), user->peerport.c_str());
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "ERR: Não foi possível enviar o comando de login!" << endl;
+        return false;
+    } 
+    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
+
+    if (n == -1) {
+        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        return false;
+    } 
+    if (n >= 0) {buffer[n] = '\0';}
+    
+    sscanf(buffer, "RLI %s", status);
+    if (strcmp(status, "OK") == 0) {
+        cout << "Login bem sucedido!\n";
+        user->login_state = 1;
+    }
+    else if (strcmp(status, "NOK") == 0) cout << "Password errada!\n";
+    else if (strcmp(status, "REG") == 0) {
+        cout << "Utilizador registado e login bem sucedido!\n";
+        user->login_state = 1;
+    }
+    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    return true;
+}
+
+bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string extra;
+    char message[32];
+    char buffer[128];
+    char status[10];
+    ssize_t n;
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (iss >> extra) {
+        cerr << "ERR: Introduziu parametros a mais!\n";
+        return false;
+    } 
+    if (user->login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
+        cerr << "ERR: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
+        return false;
+    } 
+    snprintf(message, sizeof(message), "UNR %s %s\n", user->UID.c_str(), user->password.c_str());
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "ERR: Não foi possível enviar o comando de unregister!" << endl;
+        return false;
+    }
+    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
+    if (n == -1) {
+        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        return false;
+    } 
+    if (n >= 0) {buffer[n] = '\0';}
+
+    sscanf(buffer, "RUR %s", status);
+    if (strcmp(status, "OK") == 0) {
+        cout << "Unregister bem sucedido!\n";
+        user->login_state = 0; // ACHO QUE TEMOS QUE METER ISTO
+    }
+    else if (strcmp(status, "NOK") == 0) cout << "Utilizador não tem sessão iniciada!\n";
+    else if (strcmp(status, "UNR") == 0) cout << "Utilizador não está registado!\n";
+    else if (strcmp(status, "WRP") == 0) cout << "Password incorreta!\n";
+    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    return true;
+}
+
+bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string extra;
+    char message[32];
+    char buffer[128];
+    char status[10];
+    ssize_t n;
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (iss >> extra) {
+        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        return false;
+    } 
+    if (user->login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
+        cerr << "ERR: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
+        return false;
+    } 
+
+    snprintf(message, sizeof(message), "LOU %s %s\n", user->UID.c_str(), user->password.c_str());
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "ERR: Não foi possível enviar o comando de unregister!" << endl;
+        return false;
+    }
+
+    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
+    if (n == -1) {
+        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        return false;
+    } 
+    if (n >= 0) {buffer[n] = '\0';}
+
+    sscanf(buffer, "RLO %s", status);
+    if (strcmp(status, "OK") == 0) {
+        cout << "Logout bem sucedido!\n";
+        user->login_state = 0;
+    }
+    else if(strcmp(status, "NLG") == 0) cout << "Utilizador não tem sessão iniciada!\n";
+    else if (strcmp(status, "UNR") == 0) cout << "Utilizador não está registado!\n";
+    else if (strcmp(status, "WRP") == 0) cout << "Password incorreta!\n";
+    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    return true;
+}
+
+bool exitUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string extra;
+
+    if (iss >> extra) {
+        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        return false;
+    } 
+    if (user->login_state == 1) {
+        cout << "Execute logout primeiro!\n";
+        return false;
+    }
+    freeaddrinfo(res);
+    close(fd);
+    return true;
+}
+
+void help() {
+    cout << "Available commands:\n"
+         << "  login <UID> <password>\n"
+         << "  unregister\n"
+         << "  logout\n"
+         << "  exit\n"
+         << "  help\n";
+}
 
 int main(int argc, char* argv[]) {
     struct User user;
@@ -74,13 +240,14 @@ int main(int argc, char* argv[]) {
     socklen_t addrlen;
     struct addrinfo hints, *res;
     struct sockaddr_in addr;
-    char buffer[128], status[10], message[32];
+    string input, command;
+    bool status;
 
     argument_handler(argc, argv, &user.peerport, &DSIP, &DSport);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        cerr << "Erro: Criação de socket não foi bem sucedida!" << endl;
+        cerr << "ERR: Criação de socket não foi bem sucedida!" << endl;
         exit(-1);
     }
 
@@ -91,79 +258,23 @@ int main(int argc, char* argv[]) {
     errcode=getaddrinfo(DSIP.c_str(), DSport.c_str(), &hints, &res); 
     if(errcode!=0) exit(1);
 
-    string input, command, extra;
-    ssize_t n;
-
     while (1) { 
         getline(cin, input);
         istringstream iss(input);
         iss >> command;
         if (command == "login") {
-            if (!(iss >> user.UID >> user.password)) {
-                cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
-                continue;
-            } 
-            if (iss >> extra) {
-                cerr << "Erro: Introduziu parametros a mais!" << endl;
-                continue;
-            } 
-            if (user.UID.length() != 6 || !only_digits(user.UID.c_str())) {
-                cerr << "Erro: UID inválido!" << endl;
-                continue;
-            } 
-            if (user.password.length() != 8 || !only_alnum(user.password.c_str())) {
-                cerr << "Erro: password inválida!" << endl;
-                continue;
-            } 
-            snprintf(message, sizeof(message), "LIN %s %s %s\n", user.UID.c_str(), user.password.c_str(), user.peerport.c_str());
-            n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
-            if (n == -1) {
-                cerr << "Erro: Não foi possível enviar o comando de login!" << endl;
-                continue;
-            } 
-            n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
-            if (n == -1) {
-                cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
-                continue;
-            } 
-            sscanf(buffer, "RLI %s", status);
-            if (strcmp(status, "OK")) {
-                cout << "Login bem sucedido!\n";
-                user.login_state = 1;
-            }
-            else if (strcmp(status, "NOK")) cout << "Password errada!\n";
-            else if (strcmp(status, "REG")) cout << "Utilizador registado e login bem sucedido!\n";
-        } else if (command == "unregister") {
-            if (iss >> extra) {
-                cerr << "Erro: Introduziu parametros a mais!\n";
-                continue;
-            } 
-            if (user.login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
-                cerr << "Erro: Não tem sessão iniciada!\n";
-                continue;
-            } 
-            snprintf(message, sizeof(message), "UNR %s %s", user.UID.c_str(), user.password.c_str());
-            n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
-            if (n == -1) {
-                cerr << "Erro: Não foi possível enviar o comando de unregister!" << endl;
-                continue;
-            }
-            n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
-            if (n == -1) {
-                cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
-                continue;
-            } 
-            sscanf(buffer, "RUR %s", status);
-            if (strcmp(status, "OK")) {
-                cout << "Unregister bem sucedido!\n";
-            }
-            else if (strcmp(status, "NOK")) cout << "Utilizador não tem sessão iniciada!\n";
-            else if (strcmp(status, "UNR")) cout << "Utilizador não está registado!\n";
-            else if (strcmp(status, "WRP")) cout << "Password incorreta!\n";
-        } else if (command == "logout") {
-
-        } else if (command == "exit") {
-
+            login(iss, &user, fd, res);
+        } 
+        else if (command == "unregister") {
+            unregisterUser(iss, &user, fd, res);
+        } 
+        else if (command == "logout") {
+            logout(iss, &user, fd, res);
+        } 
+        else if (command == "exit") {
+            status = exitUser(iss, &user, fd, res);
+            if (status == true) break;
         }
+        else { help(); }
     }
 }

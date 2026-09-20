@@ -12,10 +12,19 @@
 #include <algorithm>
 #include <cctype>
 #include <sstream>
+#include <signal.h>
+
 #define STANDARD_DSIP "193.136.138.142"
 #define STANDARD_DSPORT "59000" //Change port number
 
 using namespace std;
+
+volatile sig_atomic_t sigint_received = 0;
+
+void handle_sigint(int signo) {
+    (void)signo;
+    sigint_received = 1;
+}
 
 struct User {
     string UID;
@@ -235,6 +244,17 @@ int main(int argc, char* argv[]) {
     string input, command;
     bool status;
 
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        cerr << "sigaction SIGINT\n";
+        exit(-1);
+    }
+
+    signal(SIGPIPE, SIG_IGN);
+
     argument_handler(argc, argv, &user.peerport, &DSIP, &DSport);
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -250,9 +270,16 @@ int main(int argc, char* argv[]) {
     errcode=getaddrinfo(DSIP.c_str(), DSport.c_str(), &hints, &res); 
     if(errcode!=0) exit(1);
 
-    while (1) { 
+    while (1) {
         getline(cin, input);
         istringstream iss(input);
+        if (sigint_received) {
+            if (user.login_state) logout(iss, &user, fd, res);
+            freeaddrinfo(res);
+            close(fd);
+            cout << "Cliente fechado com sucesso!\n";
+            exit(0);
+        }
         iss >> command;
         if (command == "login") {
             login(iss, &user, fd, res);

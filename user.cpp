@@ -44,7 +44,7 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
     for(int i = 1; i < argc; i += 2) {
         if (!strcmp(argv[i], "-m")) {
             if (!only_digits(argv[i+1]) || atoi(argv[i+1]) < 1 || atoi(argv[i+1]) > 65535) {
-                cout << "peerport inválido: " << argv[i+1] << endl;
+                cerr << "Erro: peerport inválido " << argv[i+1] << endl;
                 exit(-1);
             }
             *peerport = argv[i+1];
@@ -58,7 +58,7 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
     }
 
     if (*peerport == "") {
-        cerr << "ERR: Não foi fornecido peerport!" << endl;
+        cerr << "Erro: Não foi fornecido peerport!" << endl;
         exit(-1);
     }
     if (*DSIP == "") *DSIP = STANDARD_DSIP;
@@ -67,63 +67,59 @@ void argument_handler(int argc, char* argv[], string *peerport, string *DSIP, st
 
 bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     string extra;
-    char message[32];
-    char buffer[128];
-    char status[10];
+    char buffer[128], message[32], status[10];
     ssize_t n;
     struct sockaddr_in addr;
     socklen_t addrlen;
 
     if (!(iss >> user->UID >> user->password)) {
-        cerr << "ERR: Não intruduziu todos os parametros necessários!" << endl;
+        cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
         return false;
     } 
     if (iss >> extra) {
-        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        cerr << "Erro: Introduziu parametros a mais!" << endl;
         return false;
     } 
     if (user->UID.length() != 6 || !only_digits(user->UID.c_str())) {
-        cerr << "ERR: UID inválido!" << endl;
+        cerr << "Erro: UID inválido!" << endl;
         return false;
     } 
     if (user->password.length() != 8 || !only_alnum(user->password.c_str())) {
-        cerr << "ERR: password inválida!" << endl;
+        cerr << "Erro: password inválida!" << endl;
         return false;
     } 
     snprintf(message, sizeof(message), "LIN %s %s %s\n", user->UID.c_str(), user->password.c_str(), user->peerport.c_str());
     n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) {
-        cerr << "ERR: Não foi possível enviar o comando de login!" << endl;
+        cerr << "Erro: Não foi possível enviar o comando de login!" << endl;
         return false;
     } 
     n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
     // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
 
     if (n == -1) {
-        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
     
     sscanf(buffer, "RLI %s", status);
-    if (strcmp(status, "OK") == 0) {
+    if (!strcmp(status, "OK")) {
         cout << "Login bem sucedido!\n";
         user->login_state = 1;
     }
-    else if (strcmp(status, "NOK") == 0) cout << "Password errada!\n";
-    else if (strcmp(status, "REG") == 0) {
+    else if (!strcmp(status, "NOK")) cout << "Password errada!\n";
+    else if (!strcmp(status, "REG")) {
         cout << "Utilizador registado e login bem sucedido!\n";
         user->login_state = 1;
     }
-    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    else if (!strcmp(status, "ERR")) cout << "Erro: Sintaxe da messagem está errado\n";
     return true;
 }
 
 bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     string extra;
-    char message[32];
-    char buffer[128];
-    char status[10];
+    char buffer[128], message[32], status[10];
     ssize_t n;
     struct sockaddr_in addr;
     socklen_t addrlen;
@@ -139,71 +135,69 @@ bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res
     snprintf(message, sizeof(message), "UNR %s %s\n", user->UID.c_str(), user->password.c_str());
     n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) {
-        cerr << "ERR: Não foi possível enviar o comando de unregister!" << endl;
+        cerr << "Erro: Não foi possível enviar o comando de unregister!" << endl;
         return false;
     }
     n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
     // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
     if (n == -1) {
-        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
 
     sscanf(buffer, "RUR %s", status);
-    if (strcmp(status, "OK") == 0) {
+    if (!strcmp(status, "OK")) {
         cout << "Unregister bem sucedido!\n";
         user->login_state = 0; // ACHO QUE TEMOS QUE METER ISTO
     }
-    else if (strcmp(status, "NOK") == 0) cout << "Utilizador não tem sessão iniciada!\n";
-    else if (strcmp(status, "UNR") == 0) cout << "Utilizador não está registado!\n";
-    else if (strcmp(status, "WRP") == 0) cout << "Password incorreta!\n";
-    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    else if (!strcmp(status, "NOK")) cout << "Utilizador não tem sessão iniciada!\n";
+    else if (!strcmp(status, "UNR")) cout << "Utilizador não está registado!\n";
+    else if (!strcmp(status, "WRP")) cout << "Password incorreta!\n";
+    else if (!strcmp(status, "ERR")) cout << "Erro: Sintaxe da messagem está errada\n";
     return true;
 }
 
 bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     string extra;
-    char message[32];
-    char buffer[128];
-    char status[10];
+    char buffer[128], message[32], status[10];
     ssize_t n;
     struct sockaddr_in addr;
     socklen_t addrlen;
 
     if (iss >> extra) {
-        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        cerr << "Erro: Introduziu parametros a mais!" << endl;
         return false;
     } 
     if (user->login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
-        cerr << "ERR: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
+        cerr << "Erro: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
         return false;
     } 
 
     snprintf(message, sizeof(message), "LOU %s %s\n", user->UID.c_str(), user->password.c_str());
     n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
     if (n == -1) {
-        cerr << "ERR: Não foi possível enviar o comando de unregister!" << endl;
+        cerr << "Erro: Não foi possível enviar o comando de unregister!" << endl;
         return false;
     }
 
     n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
     // COMPARAR SE O ENDEREÇO QUE ENVIOU É O MESMO QUE ESTÁ A RECEBER
     if (n == -1) {
-        cerr << "ERR: Não foi possível receber resposta do DS!" << endl;
+        cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
 
     sscanf(buffer, "RLO %s", status);
-    if (strcmp(status, "OK") == 0) {
+    if (!strcmp(status, "OK")) {
         cout << "Logout bem sucedido!\n";
         user->login_state = 0;
     }
-    else if(strcmp(status, "NLG") == 0) cout << "Utilizador não tem sessão iniciada!\n";
-    else if (strcmp(status, "UNR") == 0) cout << "Utilizador não está registado!\n";
-    else if (strcmp(status, "WRP") == 0) cout << "Password incorreta!\n";
-    else if (strcmp(status, "ERR") == 0) cout << "ERR: Sintaxe da messagem está errado\n";
+    else if(!strcmp(status, "NLG")) cout << "Utilizador não tem sessão iniciada!\n";
+    else if (!strcmp(status, "UNR")) cout << "Utilizador não está registado!\n";
+    else if (!strcmp(status, "WRP")) cout << "Password incorreta!\n";
+    else if (!strcmp(status, "ERR")) cout << "Erro: Sintaxe da messagem está errada\n";
     return true;
 }
 
@@ -237,9 +231,7 @@ int main(int argc, char* argv[]) {
     string DSIP;
     string DSport;
     int fd, errcode;
-    socklen_t addrlen;
     struct addrinfo hints, *res;
-    struct sockaddr_in addr;
     string input, command;
     bool status;
 
@@ -272,8 +264,7 @@ int main(int argc, char* argv[]) {
             logout(iss, &user, fd, res);
         } 
         else if (command == "exit") {
-            status = exitUser(iss, &user, fd, res);
-            if (status == true) break;
+            if (exitUser(iss, &user, fd, res)) break;
         }
         else { help(); }
     }

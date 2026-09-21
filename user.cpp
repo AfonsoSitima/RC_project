@@ -83,6 +83,10 @@ bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     struct sockaddr_in addr;
     socklen_t addrlen;
 
+    if (user->login_state) {
+        cerr << "Erro: Já tem a sessão iniciada!\n";
+        return false;
+    }
     if (!(iss >> user->UID >> user->password)) {
         cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
         return false;
@@ -91,10 +95,6 @@ bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         cerr << "Erro: Introduziu parametros a mais!" << endl;
         return false;
     } 
-    if (user->login_state) {
-        cerr << "Erro: Já tem a sessão iniciada!\n";
-        return false;
-    }
     if (user->UID.length() != 6 || !only_digits(user->UID.c_str())) {
         cerr << "Erro: UID inválido!" << endl;
         return false;

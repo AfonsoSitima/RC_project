@@ -117,6 +117,11 @@ bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
+
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
     
     sscanf(buffer, "RLI %s", status);
     if (!strcmp(status, "OK")) {
@@ -161,6 +166,11 @@ bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res
     } 
     if (n >= 0) {buffer[n] = '\0';}
 
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
+
     sscanf(buffer, "RUR %s", status);
     if (!strcmp(status, "OK")) {
         cout << "Unregister bem sucedido!\n";
@@ -203,6 +213,11 @@ bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
+
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
 
     sscanf(buffer, "RLO %s", status);
     if (!strcmp(status, "OK")) {

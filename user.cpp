@@ -17,7 +17,7 @@
 #define STANDARD_DSIP "193.136.138.142" // Fora do Técnico
 // #define STANDARD_DSIP "192.168.1.1" // No LT5
 #define STANDARD_DSPORT "59000" //Change port number
-#define UPD_TIMEOUT 5;
+#define UPD_TIMEOUT 5
 
 using namespace std;
 

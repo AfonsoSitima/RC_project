@@ -17,6 +17,7 @@
 #define STANDARD_DSIP "193.136.138.142" // Fora do Técnico
 // #define STANDARD_DSIP "192.168.1.1" // No LT5
 #define STANDARD_DSPORT "59000" //Change port number
+#define UPD_TIMEOUT 5;
 
 using namespace std;
 
@@ -245,6 +246,8 @@ int main(int argc, char* argv[]) {
     string input, command;
     bool status;
 
+    struct timeval timeout = {UPD_TIMEOUT, 0};
+
     struct sigaction sa;
     sa.sa_handler = handle_sigint;
     sa.sa_flags = 0;
@@ -261,6 +264,11 @@ int main(int argc, char* argv[]) {
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
         cerr << "Erro: Criação de socket não foi bem sucedida!" << endl;
+        exit(-1);
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1) {
+        cerr << "Erro: Definição de timeout do socket UDP não foi bem sucedida!\n";
         exit(-1);
     }
 

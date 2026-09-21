@@ -14,7 +14,8 @@
 #include <sstream>
 #include <signal.h>
 
-#define STANDARD_DSIP "193.136.138.142"
+#define STANDARD_DSIP "193.136.138.142" // Fora do Técnico
+// #define STANDARD_DSIP "192.168.1.1" // No LT5
 #define STANDARD_DSPORT "59000" //Change port number
 
 using namespace std;
@@ -134,11 +135,11 @@ bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res
     socklen_t addrlen;
 
     if (iss >> extra) {
-        cerr << "ERR: Introduziu parametros a mais!\n";
+        cerr << "Erro: Introduziu parametros a mais!\n";
         return false;
     } 
     if (user->login_state == 0) { // Verificação de utilizador sem sessão iniciada antes ou depois de enviar o comando?
-        cerr << "ERR: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
+        cerr << "Erro: Não tem sessão iniciada!\n";  //POIS YA COM O ERR NLG NÃO FAZ MUITO SENTIDO
         return false;
     } 
     snprintf(message, sizeof(message), "UNR %s %s\n", user->UID.c_str(), user->password.c_str());
@@ -214,7 +215,7 @@ bool exitUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     string extra;
 
     if (iss >> extra) {
-        cerr << "ERR: Introduziu parametros a mais!" << endl;
+        cerr << "Erro: Introduziu parametros a mais!" << endl;
         return false;
     } 
     if (user->login_state == 1) {
@@ -259,7 +260,7 @@ int main(int argc, char* argv[]) {
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        cerr << "ERR: Criação de socket não foi bem sucedida!" << endl;
+        cerr << "Erro: Criação de socket não foi bem sucedida!" << endl;
         exit(-1);
     }
 

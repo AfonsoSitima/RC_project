@@ -287,7 +287,6 @@ int main(int argc, char* argv[]) {
         getline(cin, input);
         istringstream iss(input);
         if (sigint_received) {
-            if (user.login_state) logout(iss, &user, fd, res);
             freeaddrinfo(res);
             close(fd);
             cout << "Cliente fechado com sucesso!\n";

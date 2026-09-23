@@ -13,6 +13,8 @@
 #include <cctype>
 #include <sstream>
 #include <signal.h>
+#include <iostream>
+#include <filesystem>
 
 #define STANDARD_DSIP "193.136.138.142" // Fora do Técnico
 // #define STANDARD_DSIP "192.168.1.1" // No LT5
@@ -274,8 +276,53 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     } 
 
     // confirmar que file existe
+    if (!(1 <= filename.length() <= 24)) {
+        cerr << "Erro: Filename inválida!" << endl;
+        return false;
+    }
+    //ssize_t pos = filename.
+    size_t dot = filename.find('.');
+    if (dot == string::npos){
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+    if (dot != filename.find_last_not_of('.')) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+    if (filename.length() != dot + 3) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+    for (int i = 0; i <= filename.length(); i++ ) {
+        if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
+    }
+    if (!(filesystem::exists(filename))) {
+        cerr << "Erro: File não existe!" << endl;
+        return false;
+    }
 
-    // confirmar label em formato "***p"
+    if (!(1 <= label.length() <= 20)) {
+        cerr << "Erro: Label inválida!" << endl;
+        return false;
+    }
+    for (int i = 0; i <= label.length(); i++ ) {
+        if (!isalnum(label[i]) && label[i] != '_' && label[i] != '-') {
+            cerr << "Erro: Label inválida!" << endl;
+            return false;
+        }
+    }
+
+    snprintf(message, sizeof(message), "PUB %s %s %s %llu %s\n", user->UID.c_str(), user->password.c_str(), filename.c_str(), filesystem::file_size(filename), label.c_str());
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível enviar o comando de login!" << endl;
+        return false;
+    }
+
     
 }
 

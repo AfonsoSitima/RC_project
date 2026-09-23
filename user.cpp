@@ -237,6 +237,29 @@ void help() {
          << "  help\n";
 }
 
+bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string filename, label, extra;
+    char buffer[128], message[32], status[10];
+    ssize_t n;
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (!(iss >> filename >> label)) {
+        cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
+        return false;
+    } 
+    
+    if (iss >> extra) {
+        cerr << "Erro: Introduziu parametros a mais!" << endl;
+        return false;
+    } 
+
+    // confirmar que file existe
+
+    // confirmar label em formato "***p"
+    
+}
+
 int main(int argc, char* argv[]) {
     struct User user;
     string DSIP;

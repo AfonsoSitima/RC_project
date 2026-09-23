@@ -83,6 +83,10 @@ bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     struct sockaddr_in addr;
     socklen_t addrlen;
 
+    if (user->login_state) {
+        cerr << "Erro: Já tem a sessão iniciada!\n";
+        return false;
+    }
     if (!(iss >> user->UID >> user->password)) {
         cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
         return false;
@@ -113,6 +117,11 @@ bool login(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
+
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
     
     sscanf(buffer, "RLI %s", status);
     if (!strcmp(status, "OK")) {
@@ -157,6 +166,11 @@ bool unregisterUser(istringstream& iss, User* user, int fd, struct addrinfo *res
     } 
     if (n >= 0) {buffer[n] = '\0';}
 
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
+
     sscanf(buffer, "RUR %s", status);
     if (!strcmp(status, "OK")) {
         cout << "Unregister bem sucedido!\n";
@@ -199,6 +213,11 @@ bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     } 
     if (n >= 0) {buffer[n] = '\0';}
+
+    if (strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
 
     sscanf(buffer, "RLO %s", status);
     if (!strcmp(status, "OK")) {
@@ -306,7 +325,6 @@ int main(int argc, char* argv[]) {
         getline(cin, input);
         istringstream iss(input);
         if (sigint_received) {
-            if (user.login_state) logout(iss, &user, fd, res);
             freeaddrinfo(res);
             close(fd);
             cout << "Cliente fechado com sucesso!\n";

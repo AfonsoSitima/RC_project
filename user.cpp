@@ -344,6 +344,74 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     return true;
 }
 
+bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+    string filename, label, extra;
+    char buffer[128], message[64], status[10]; //tive que aumentar o numero de char na message
+    ssize_t n;
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (!(iss >> filename)) {
+        cerr << "Erro: Não intruduziu todos os parametros necessários!" << endl;
+        return false;
+    } 
+    
+    if (iss >> extra) {
+        cerr << "Erro: Introduziu parametros a mais!" << endl;
+        return false;
+    } 
+
+    ssize_t dot = filename.find('.');
+    if (dot == string::npos){
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    if (dot != filename.find_last_of('.')) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    if (filename.length() != dot + 3) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    for (int i = 0; i <= filename.length(); i++ ) {
+        if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
+    }
+    
+    snprintf(message, sizeof(message), "REM %s %s %s\n", user->UID.c_str(), user->password.c_str(), filename.c_str());
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível enviar o comando de login!" << endl;
+        return false;
+    }
+    
+    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
+        return false;
+    } 
+    if (n >= 0) {buffer[n] = '\0';}
+
+    if (!strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
+    
+    sscanf(buffer, "RPB %s", status);
+    if (!strcmp(status, "OK")) {cout << "Operação bem sucedida!\n";}
+    else if (!strcmp(status, "NLG")) cout << "Utilizador não tem sessão iniciada!\n";
+    else if (!strcmp(status, "UNR")) cout << "Utilizador não registado!\n";
+    else if (!strcmp(status, "WRP")) cout << "Password incorreta\n";
+    else if (!strcmp(status, "NOK")) cout << "Ficheiro não foi publicado\n";
+    return true;
+}
+
 int main(int argc, char* argv[]) {
     struct User user;
     string DSIP;

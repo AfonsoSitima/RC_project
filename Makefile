@@ -1,5 +1,5 @@
 user: user.cpp
-	g++ user.cpp -o user
+	g++ -std=c++17 user.cpp -o user
 
 clean:
 	rm -f user

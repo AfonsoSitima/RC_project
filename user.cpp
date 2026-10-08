@@ -20,6 +20,7 @@
 // #define STANDARD_DSIP "192.168.1.1" // No LT5
 #define STANDARD_DSPORT "59000" //Change port number
 #define UPD_TIMEOUT 5
+#define TCP_TIMEOUT 5
 
 using namespace std;
 
@@ -224,14 +225,20 @@ bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         cout << "Logout bem sucedido!\n";
         user->login_state = 0;
     }
-    else if(!strcmp(status, "NLG")) cout << "Utilizador não tem sessão iniciada!\n";
-    else if (!strcmp(status, "UNR")) cout << "Utilizador não está registado!\n";
+    else if(!strcmp(status, "NLG")) {
+        cout << "Utilizador não tem sessão iniciada!\n";
+        user->login_state = 0;
+    } 
+    else if (!strcmp(status, "UNR")) {
+        cout << "Utilizador não está registado!\n";
+        user->login_state = 0;
+    } 
     else if (!strcmp(status, "WRP")) cout << "Password incorreta!\n";
     else if (!strcmp(status, "ERR")) cout << "Erro: Sintaxe da messagem está errada\n";
     return true;
 }
 
-bool exitUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
+bool exitUser(istringstream& iss, User* user, int fd, struct addrinfo *res, struct addrinfo *res_tcp) {
     string extra;
 
     if (iss >> extra) {
@@ -243,6 +250,7 @@ bool exitUser(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
     freeaddrinfo(res);
+    freeaddrinfo(res_tcp);
     close(fd);
     return true;
 }
@@ -412,12 +420,149 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     return true;
 }
 
+bool list(istringstream& iss, int fd, struct addrinfo *res) {
+    string extra;
+    ssize_t n;
+    char buffer[1024], status[10], files[1024];
+    struct sockaddr_in addr;
+    socklen_t addrlen;
+
+    if (iss >> extra) {
+        cerr << "Erro: Introduziu parametros a mais!\n";
+        return false;
+    }
+
+    char message[] = "LST\n";
+    n = sendto(fd, message, strlen(message), 0, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível enviar o comando de unregister!" << endl;
+        return false;
+    }
+
+    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
+        return false;
+    } 
+    if (n >= 0) {buffer[n] = '\0';}
+
+    if (!strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        return false;
+    }
+
+    sscanf(buffer, "RLS %s", status);
+    if (!strcmp(status, "OK")) {
+        cout << "Ficheiros no DS:\n";
+        istringstream iss(buffer);
+        string ignore, filename;
+        iss >> ignore >> ignore;
+        while (1) {
+            if (iss >> filename) cout << filename << endl;
+            else break;
+        }
+    }
+    else if (!strcmp(status, "NOK")) {
+        cout << "Nenhum ficheiro publicado no DS.\n";
+    }
+
+    return true;
+}
+
+bool versions(istringstream& iss, struct addrinfo *res) {
+    string filename, extra, status, UID, Fsize, label, publication_time, availability, ign;
+    ssize_t n, i;
+    char message[64], buffer[1024];
+    int fd;
+    struct timeval timeout = {TCP_TIMEOUT, 0};
+
+    if (!(iss >> filename)) {
+        cerr << "Erro: Não introduziu o nome do ficheiro.\n";
+        return false;
+    }
+
+    if (iss >> extra) {
+        cerr << "Erro: Introduziu parametros a mais!\n";
+        return false;
+    }
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1) {
+        cerr << "Erro: Criação de socket TCP não foi bem sucedida!" << endl;
+        exit(-1);
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == -1 ||
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) == -1) {
+        cerr << "Erro: Definição de timeout do socket TCP não foi bem sucedida!\n";
+        close(fd);
+        return false;
+    }
+
+    n = connect(fd, res->ai_addr, res->ai_addrlen);
+    if (n == -1) {
+        cerr << "Erro: Não foi possível estabelecer ligação com o DS.\n";
+        close(fd);
+        return false;
+    }
+
+    snprintf(message, sizeof(message), "VRS %s\n", filename.c_str());
+    char *ptr = message;
+    while ((n = write(fd, ptr, strlen(ptr))) < strlen(ptr)) {
+        if (n == -1) {
+        cerr << "Erro: Não foi possível contactar o DS.\n";
+        close(fd);
+        return false;
+        }
+        ptr += n;
+    }
+
+    n = 0;
+    char *ptr2 = buffer;
+    do {
+        i = read(fd, ptr2, 1024);
+        if (i == -1) {
+            cerr << "Erro: Não foi possível receber resposta do DS.\n";
+            close(fd);
+            return false;
+        }
+        ptr2 += i;
+        if (i == 0) {
+            *ptr2 = '\0';
+            break;
+        }
+    } while (*ptr != '\n' and *ptr != '\0');
+
+    if (!strcmp(buffer, "ERR")) {
+        cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        close(fd);
+        return false;
+    }
+
+    istringstream stream(buffer);
+    stream >> ign >> status;
+    if (status == "OK") {
+        while (stream >> UID >> Fsize >> label >> publication_time >> availability) {
+            cout << "UID: " << UID << " | File size: " << Fsize << " | Label: " << label << " | Publication Time: " << publication_time << " | Available: ";
+            if (availability == "AVL") cout << "True\n";
+            else if (availability == "NAV") cout << "False\n";
+        }
+    }
+    else if (status == "NOK") cout << "Nenhum peer disponível para o ficheiro: " << filename << endl;
+    else if (status == "ERR") cout << "Erro de sintax no comando enviado.\n";
+
+
+    close(fd);
+    return true;
+
+}
+
 int main(int argc, char* argv[]) {
     struct User user;
     string DSIP;
     string DSport;
     int fd, errcode;
-    struct addrinfo hints, *res;
+    struct addrinfo hints, *res, *res_tcp;
     string input, command;
     bool status;
 
@@ -438,7 +583,7 @@ int main(int argc, char* argv[]) {
 
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd == -1) {
-        cerr << "Erro: Criação de socket não foi bem sucedida!" << endl;
+        cerr << "Erro: Criação de socket UDP não foi bem sucedida!" << endl;
         exit(-1);
     }
 
@@ -452,13 +597,28 @@ int main(int argc, char* argv[]) {
     hints.ai_socktype=SOCK_DGRAM;
 
     errcode=getaddrinfo(DSIP.c_str(), DSport.c_str(), &hints, &res); 
-    if(errcode!=0) exit(1);
+    if(errcode!=0) {
+        cerr << "Erro: errcode\n";
+        exit(-1);
+    }
+
+    memset(&hints,0,sizeof hints); 
+    hints.ai_family=AF_INET;
+    hints.ai_socktype=SOCK_STREAM;
+
+    errcode=getaddrinfo(DSIP.c_str(), DSport.c_str(), &hints, &res_tcp); 
+    if(errcode!=0) {
+        cerr << "Erro: errcode\n";
+        exit(-1);
+    }
+
 
     while (1) {
         getline(cin, input);
         istringstream iss(input);
         if (sigint_received) {
             freeaddrinfo(res);
+            freeaddrinfo(res_tcp);
             close(fd);
             cout << "Cliente fechado com sucesso!\n";
             exit(0);
@@ -474,7 +634,13 @@ int main(int argc, char* argv[]) {
             logout(iss, &user, fd, res);
         } 
         else if (command == "exit") {
-            if (exitUser(iss, &user, fd, res)) break;
+            if (exitUser(iss, &user, fd, res, res_tcp)) break;
+        }
+        else if (command == "list") {
+            list(iss, fd, res);
+        }
+        else if (command == "versions") {
+            versions(iss, res_tcp);
         }
         else { help(); }
     }

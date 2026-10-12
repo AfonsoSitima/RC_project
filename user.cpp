@@ -375,9 +375,18 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     } 
 
+    if (!user->login_state) {
+        cerr << "Erro: Não tem sessão iniciada!\n";
+    }
+
     ssize_t dot = filename.find('.');
     if (dot == string::npos){
         cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    if (filename.length() < 1 || filename.length() > 24) {
+        cerr << "Erro: Tamanho do nome do ficheiro inválido!" << endl;
         return false;
     }
 
@@ -386,12 +395,12 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (filename.length() != dot + 3) {
+    if (filename.length() != dot + 4) {
         cerr << "Erro: Filename inválido!" << endl;
         return false;
     }
 
-    for (int i = 0; i <= filename.length(); i++ ) {
+    for (int i = 0; i < filename.length(); i++ ) {
         if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
             cerr << "Erro: Filename inválido!" << endl;
             return false;
@@ -417,12 +426,13 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
     
-    sscanf(buffer, "RPB %s", status);
+    sscanf(buffer, "RRM %s", status);
     if (!strcmp(status, "OK")) {cout << "Operação bem sucedida!\n";}
     else if (!strcmp(status, "NLG")) cout << "Utilizador não tem sessão iniciada!\n";
     else if (!strcmp(status, "UNR")) cout << "Utilizador não registado!\n";
     else if (!strcmp(status, "WRP")) cout << "Password incorreta\n";
     else if (!strcmp(status, "NOK")) cout << "Ficheiro não foi publicado\n";
+    else if (!strcmp(status, "ERR")) cout << "Erro de syntax no comando\n";
     return true;
 }
 

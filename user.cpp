@@ -279,10 +279,15 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     if (iss >> extra) {
         cerr << "Erro: Introduziu parametros a mais!" << endl;
         return false;
-    } 
+    }
 
-    if (label.length() < 1 || label.length() > 20) {
-        cerr << "Erro: Filename inválida!" << endl;
+    if (!user->login_state) {
+        cerr << "Erro: Não tem sessão iniciada!\n";
+        return false; 
+    }
+
+    if (filename.length() < 1 || filename.length() > 24) {
+        cerr << "Erro: Tamanho do nome do ficheiro inválido!" << endl;
         return false;
     }
 
@@ -297,12 +302,12 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (filename.length() != dot + 3) {
+    if (filename.length() != dot + 4) {
         cerr << "Erro: Filename inválido!" << endl;
         return false;
     }
 
-    for (int i = 0; i <= filename.length(); i++ ) {
+    for (int i = 0; i < filename.length(); i++ ) {
         if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
             cerr << "Erro: Filename inválido!" << endl;
             return false;
@@ -313,11 +318,11 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (label.length() < 1||  label.length() > 24) {
+    if (filename.length() < 1||  filename.length() > 20) {
         cerr << "Erro: Label inválida!" << endl;
         return false;
     }
-    for (int i = 0; i <= label.length(); i++ ) {
+    for (int i = 0; i < label.length(); i++ ) {
         if (!isalnum(label[i]) && label[i] != '_' && label[i] != '-') {
             cerr << "Erro: Label inválida!" << endl;
             return false;
@@ -349,6 +354,7 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     else if (!strcmp(status, "UNR")) cout << "Utilizador não registado!\n";
     else if (!strcmp(status, "WRP")) cout << "Password incorreta\n";
     else if (!strcmp(status, "NOK")) cout << "Ficheiro não pode ser publicado\n";
+    else if (!strcmp(status, "ERR")) cout << "Erro de syntax no comando\n";
     return true;
 }
 
@@ -635,6 +641,12 @@ int main(int argc, char* argv[]) {
         } 
         else if (command == "exit") {
             if (exitUser(iss, &user, fd, res, res_tcp)) break;
+        }
+        else if (command == "publish") {
+            publishFile(iss, &user, fd, res);
+        }
+        else if (command == "remove") {
+            removeFile(iss, &user, fd, res);
         }
         else if (command == "list") {
             list(iss, fd, res);

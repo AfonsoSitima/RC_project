@@ -439,7 +439,7 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
 bool list(istringstream& iss, int fd, struct addrinfo *res) {
     string extra;
     ssize_t n;
-    char buffer[1024], status[10], files[1024];
+    char buffer[5000], status[10], files[1024];
     struct sockaddr_in addr;
     socklen_t addrlen;
 
@@ -455,7 +455,7 @@ bool list(istringstream& iss, int fd, struct addrinfo *res) {
         return false;
     }
 
-    n = recvfrom(fd, buffer, 128, 0, (struct sockaddr*) &addr, &addrlen);
+    n = recvfrom(fd, buffer, 1024, 0, (struct sockaddr*) &addr, &addrlen);
     if (n == -1) {
         cerr << "Erro: Não foi possível receber resposta do DS!" << endl;
         return false;
@@ -630,6 +630,7 @@ int main(int argc, char* argv[]) {
 
 
     while (1) {
+        cout << ">>> ";
         getline(cin, input);
         istringstream iss(input);
         if (sigint_received) {

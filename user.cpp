@@ -217,6 +217,7 @@ bool logout(istringstream& iss, User* user, int fd, struct addrinfo *res) {
 
     if (!strcmp(buffer, "ERR")) {
         cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";
+        user->login_state = 0;
         return false;
     }
 
@@ -261,6 +262,10 @@ void help() {
          << "  unregister\n"
          << "  logout\n"
          << "  exit\n"
+         << "  publish <filename> <label>\n"
+         << "  remove <filename>\n"
+         << "  list\n"
+         << "  versions <filename>\n"
          << "  help\n";
 }
 

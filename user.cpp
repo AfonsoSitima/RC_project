@@ -561,7 +561,7 @@ bool versions(istringstream& iss, struct addrinfo *res) {
             *ptr2 = '\0';
             break;
         }
-    } while (*ptr != '\n' and *ptr != '\0');
+    } while (*ptr2 != '\n' and *ptr2 != '\0');
 
     if (!strcmp(buffer, "ERR")) {
         cerr << "Erro: Comunicação com o servidor não foi bem sucedida!\n";

@@ -302,7 +302,7 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (dot != filename.find_last_of('.')) {
+    if (dot != filename.find_last_of('.') || dot == 0) {
         cerr << "Erro: Filename inválido!" << endl;
         return false;
     }
@@ -313,7 +313,11 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
     }
 
     for (int i = 0; i < filename.length(); i++ ) {
-        if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
+        if (dot < i && !isalnum(filename[i])) {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
+        else if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
             cerr << "Erro: Filename inválido!" << endl;
             return false;
         }
@@ -382,6 +386,7 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
 
     if (!user->login_state) {
         cerr << "Erro: Não tem sessão iniciada!\n";
+        return false;
     }
 
     ssize_t dot = filename.find('.');
@@ -400,13 +405,17 @@ bool removeFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (filename.length() != dot + 4) {
+    if (filename.length() != dot + 4 || dot == 0) {
         cerr << "Erro: Filename inválido!" << endl;
         return false;
     }
 
     for (int i = 0; i < filename.length(); i++ ) {
-        if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
+        if (dot < i && !isalnum(filename[i])) {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
+        else if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
             cerr << "Erro: Filename inválido!" << endl;
             return false;
         }

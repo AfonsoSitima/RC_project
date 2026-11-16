@@ -247,7 +247,7 @@ bool publishFile(istringstream& iss, User* user, int fd, struct addrinfo *res) {
         return false;
     }
 
-    if (filename.length() < 1||  filename.length() > 20) {
+    if (label.length() < 1||  label.length() > 20) {
         cerr << "Erro: Label inválida!" << endl;
         return false;
     }
@@ -434,6 +434,38 @@ bool versions(istringstream& iss, struct addrinfo *res) {
     if (iss >> extra) {
         cerr << "Erro: Introduziu parametros a mais!\n";
         return false;
+    }
+    
+    if (filename.length() < 1 || filename.length() > 24) {
+        cerr << "Erro: Tamanho do nome do ficheiro inválido!" << endl;
+        return false;
+    }
+
+    ssize_t dot = filename.find('.');
+    if (dot == string::npos){
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    if (dot != filename.find_last_of('.') || dot == 0) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    if (filename.length() != dot + 4) {
+        cerr << "Erro: Filename inválido!" << endl;
+        return false;
+    }
+
+    for (int i = 0; i < filename.length(); i++ ) {
+        if (dot < i && !isalnum(filename[i])) {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
+        else if (!isalnum(filename[i]) && filename[i] != '_' && filename[i] != '-' && filename[i] != '.') {
+            cerr << "Erro: Filename inválido!" << endl;
+            return false;
+        }
     }
 
     fd = socket(AF_INET, SOCK_STREAM, 0);

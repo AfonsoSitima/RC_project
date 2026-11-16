@@ -1,21 +1,26 @@
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <netdb.h>
 #include <cstring>
-#include <stdio.h>
 #include <string>
 #include <iostream>
 #include <algorithm>
-#include <cctype>
 #include <sstream>
 #include <signal.h>
 #include <iostream>
 #include <filesystem>
+#include "aux.hpp"
+#include "commands.hpp"
 
+volatile sig_atomic_t sigint_received = 0;
+
+void handle_sigint(int signo) {
+    (void)signo;
+    sigint_received = 1;
+}
+
+/*
 #define STANDARD_DSIP "193.136.138.142" // Fora do Técnico
 // #define STANDARD_DSIP "192.168.1.1" // No LT5
 #define STANDARD_DSPORT "59000" //Change port number
@@ -23,8 +28,6 @@
 #define TCP_TIMEOUT 5
 
 using namespace std;
-
-volatile sig_atomic_t sigint_received = 0;
 
 void handle_sigint(int signo) {
     (void)signo;
@@ -586,6 +589,8 @@ bool versions(istringstream& iss, struct addrinfo *res) {
     return true;
 
 }
+
+*/
 
 int main(int argc, char* argv[]) {
     struct User user;
